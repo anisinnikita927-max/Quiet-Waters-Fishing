@@ -10,6 +10,7 @@ const AudioBankScript = preload("res://scripts/audio_bank.gd")
 const MenuScript = preload("res://scripts/menu.gd")
 const RingGauge = preload("res://scripts/ring_gauge.gd")
 const IconButton = preload("res://scripts/icon_button.gd")
+const LoadingScreen = preload("res://scripts/loading_screen.gd")
 
 enum FishingState { READY, CHARGING, CASTING, WAITING, BITE, FIGHT, LANDING }
 
@@ -74,6 +75,7 @@ var sfx_volume := 0.8
 var ambient_volume := 0.7
 
 var game_started := false
+var is_loading := true
 var paused := false
 
 var camera: Camera3D
@@ -117,9 +119,19 @@ var catch_tween: Tween
 
 
 func _ready() -> void:
+	is_loading = true
+	var started := Time.get_ticks_msec()
 	if OS.has_feature("mobile"):
 		MU.detail = 0.6
 	rng.randomize()
+	# сначала показываем свою заставку, потом собираем мир по шагам
+	var loader := LoadingScreen.new()
+	var loader_layer := CanvasLayer.new()
+	loader_layer.layer = 60
+	loader_layer.add_child(loader)
+	add_child(loader_layer)
+	loader.set_progress(0.05, "Открываем озёра...")
+	await get_tree().process_frame
 	owned_rods.resize(Data.RODS.size())
 	for i in range(owned_rods.size()):
 		owned_rods[i] = int(Data.RODS[i]["price"]) == 0
@@ -133,10 +145,14 @@ func _ready() -> void:
 	audio.music_volume = music_volume
 	audio.sfx_volume = sfx_volume
 	audio.ambient_volume = ambient_volume
+	loader.set_progress(0.2, "Достаём удочку...")
+	await get_tree().process_frame
 	_build_rod()
 	_build_first_person_arms()
 	_build_bobber_and_line()
 	_build_ui()
+	loader.set_progress(0.4, "Рисуем меню...")
+	await get_tree().process_frame
 	menu = MenuScript.new()
 	menu.name = "Меню"
 	var menu_layer := CanvasLayer.new()
@@ -149,20 +165,32 @@ func _ready() -> void:
 	menu.exit_lake_requested.connect(_exit_lake)
 	menu.quit_requested.connect(_quit_game)
 	get_viewport().size_changed.connect(_layout_ui)
+	loader.set_progress(0.65, "Наполняем озеро водой...")
+	await get_tree().process_frame
 	_select_lake(selected_lake)
 	_select_rod(selected_rod, false)
+	loader.set_progress(0.9, "Зовём рыбу...")
+	await get_tree().process_frame
 	_show_menu()
 	_layout_ui()
 	_update_hud()
+	# заставка показывается не меньше полутора секунд, чтобы не мелькать
+	var spent := float(Time.get_ticks_msec() - started) / 1000.0
+	if spent < 1.6:
+		await get_tree().create_timer(1.6 - spent).timeout
+	is_loading = false
+	loader.finish()
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and not is_loading:
 		_handle_escape()
 
 
 # ---------------------------------------------------------------- цикл
 func _process(delta: float) -> void:
+	if is_loading and menu == null:
+		return
 	elapsed += delta
 	if scenery != null:
 		scenery.tick(delta)
@@ -248,6 +276,8 @@ func _handle_escape() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if is_loading:
+		return
 	if event is InputEventKey and event.pressed and not event.is_echo():
 		if event.keycode == KEY_ESCAPE or event.keycode == KEY_M:
 			_handle_escape()
