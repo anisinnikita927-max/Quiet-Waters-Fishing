@@ -11,9 +11,10 @@ config_version=5
 [application]
 
 config/name="Quiet Waters: Fishing"
-config/description="A peaceful first-person fishing game across three lakes, each with its own soundtrack and rod shop."
+config/description="A peaceful first-person fishing game across eleven lakes with weather, music, a rod shop and a fish collection."
 config/version="1.0.0"
 config/icon="res://assets/app_icon.png"
+config/quit_on_go_back=false
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7")
 
@@ -25,6 +26,7 @@ window/size/window_width_override=1600
 window/size/window_height_override=900
 window/handheld/orientation=0
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [rendering]
 

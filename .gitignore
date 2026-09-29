@@ -1,2 +1,4 @@
-﻿android/build/libs/
+android/build/libs/
 .godot/
+*.aab
+*.apk
